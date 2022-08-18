@@ -21,7 +21,7 @@ Realign soft-clipped parts to TE consensus sequences with novoalign.
 Output is composed a sorted.bam file containing all mapped soft-clipped  
 parts sorted by coordinates and a novoalign report. Parallel execution is allowed  
 with GNU Parallel.  
-Usage: 
+Usage:  
 [-i <input file, fastq>]  
 [-o <output file name, suffix will be added automatically>]  
 [-c \<TE consensus sequences novoalign index file>]  
