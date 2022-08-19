@@ -1,7 +1,7 @@
 #!/bin/bash
 ### 2022.08.18
 ### 1. Filter alignments with flag 4(unmapped) 256(secondary) 1024(duplicates) 2048(supplementary).
-### 2. Get alignments contains only 1 soft-clipped part and the length of this part must be not less than 10 bases.
+### 2. Get alignments contains only 1 soft-clipped part and the length of this part must be not less/more than set length.
 
 
 
