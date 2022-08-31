@@ -5,15 +5,17 @@ parallel<sup>[[1]](https://github.com/MarcelloMalpighi/lowFrequencyInsertion/edi
 samtools version: 1.15.1  
   
 ## getSoftClipped.sh  
-Get primary alignments contains only 1 soft-clipped part and  
-the length of this part must be not more/less than input limits.  
-Output is composed of a sam file of chosen alignments and  
-a corresponging fastq file of soft-clipped parts.  
+Get primary alignments contains only 1 soft-clipped part and the length 
+of this part must be not more/less than input limits. Output is composed
+of a sam file of chosen alignments with their mate alignments and a 
+corresponging fastq file of chosen reads.  
 Usage:  
-[-i <input file, bam/sam>]  
-[-o <output file name, suffix will be added automatically>]  
-[-u <upper limit of soft-clipped part length, limit itself is included>]  
-[-l <lower limit of soft-clipped part length, limit itself is included>]  
+[-i <input file, bam/sam, mandatory>]  
+[-o <output file name, suffix will be added automatically, mandatory>]  
+[-u <upper limit of soft-clipped part length, limit itself is included, optional, default: 130>]  
+[-l <lower limit of soft-clipped part length, limit itself is included, optional, default: 20>]  
+[-t <threads used for samtools sort, optional, default: 2>]  
+[-m <memory per thread used for samtools sort, optional, defalut: 2G>]  
 [-h \<help>]  
   
 ## reAlignRef.sh  
