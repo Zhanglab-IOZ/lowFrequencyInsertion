@@ -50,7 +50,7 @@ done
 if test $input && test $output && test $upper && test $lower
 then
 samtools view -u -F 2304 ${input} | samtools sort -n -@ $threads -m $memory -O sam | \
-awk -v up=$upper -v low=$lower -f getSoftClipped.v3.awk.sh > ${output}.sam
+awk -v up=$upper -v low=$lower -f getSoftClipped.awk.sh > ${output}.sam
 else
 echo "Error! Lack of mandatory parameters!"
 usage
