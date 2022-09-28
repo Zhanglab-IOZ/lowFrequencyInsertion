@@ -1,0 +1,68 @@
+#!/bin/bash
+### 2022.09.28
+
+
+
+# usage for output
+usage(){ 
+echo -e "lowFI\n
+Detect low-frequency ALU insertions supported by single soft-clipped read pair.\n
+Usage: lowFI [options]
+[-i <input file, the absolute path is necessary, bam/sam, mandatory>]
+[-o <output file name, suffix will be added automatically, mandatory>]
+[-u <upper limit of soft-clipped part length, limit itself is included, optional, default: 130>]
+[-l <lower limit of soft-clipped part length, limit itself is included, optional, default: 20>]
+[-p <number of jobs to be run in parallel, optional, default: 2>]
+[-m <memory per thread used for samtools sort, optional, defalut: 2G>]
+[-T <ALU consensus sequences novoalign index file, mandatory>]
+[-G <Genome novoalign index file, mandatory>]
+[-R <ALU annotation file, bed, mandatory>]
+[-X <xTea detection result, bed, optional>]
+[-h <help>]"; 
+exit;
+}
+
+# get opts
+while getopts ":hi:o:u:l:p:m:T:G:R:X:" opt
+do
+	case "${opt}" in
+	h)usage;;
+	i)input=${OPTARG};;
+	o)output=${OPTARG};;
+	u)upper=${OPTARG};;
+	l)lower=${OPTARG};;
+    p)parallel=${OPTARG};;
+    m)memory=${OPTARG};;
+    T)Tindex=${OPTARG};;
+    G)Gindex=${OPTARG};;
+    R)repeatmasker=${OPTARG};;
+    X)xtea=${OPTARG};;
+	*)
+        	echo "Error! Unexpected parameters: $*!" 1>&2
+		usage
+		;;
+	esac
+done
+
+[ -z $upper ] && upper=130
+[ -z $lower ] && lower=20
+[ -z $parallel ] && parallel=2
+[ -z $memory ] && memory="2G"
+
+if [ -z ${input} ] || [ -z ${output} ] || [ -z ${Tindex} ] || [ -z ${Gindex} ] || [ -z ${repeatmasker} ] || [ -z $upper ] || [ -z $lower ] || [ -z $parallel ] || [ -z $memory ]
+then
+echo "Error! Lack of mandatory parameters!" 1>&2
+usage
+fi
+
+# detect low-frequency insertions
+mkdir ${output}
+cd ${output}
+/usr/bin/time -a -o ${output}.time.log -f "${output} getSoftClipped time: %E" getSoftClipped -i ${input} -o ${output} -u ${upper} -l ${lower} -p ${parallel} -m ${memory}
+/usr/bin/time -a -o ${output}.time.log -f "${output} reAlignTE time: %E" reAlignTE -i ${output}.genome.clipped.pair.fastq -o ${output} -T ${Tindex} -p ${parallel} -m ${memory} 
+if [ -z $xtea ]
+then
+/usr/bin/time -a -o ${output}.time.log -f "${output} detectIns time: %E" detectIns -g ${output}.genome.clipped.pair.qname.sorted.sam -t ${output}.te.clipped.pair.realigned.qname.sorted.sam -o ${output} -G ${Gindex} -R ${repeatmasker} -X ${xtea} -p ${parallel}
+else
+/usr/bin/time -a -o ${output}.time.log -f "${output} detectIns time: %E" detectIns -g ${output}.genome.clipped.pair.qname.sorted.sam -t ${output}.te.clipped.pair.realigned.qname.sorted.sam -o ${output} -G ${Gindex} -R ${repeatmasker} -p ${parallel}
+fi

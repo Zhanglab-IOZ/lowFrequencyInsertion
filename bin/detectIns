@@ -1,0 +1,124 @@
+#!/bin/bash
+### 2022.09.28
+
+
+
+# usage for output
+usage(){
+echo -e "detectIns\n
+Detect insertions which are supported by only one clipped read pair. If Matched part of genome alignment\n
+and TE consensus sequence alignment is more than 50%, the soft-clipped part of genome alignmet is realigned\n
+to the genome. Then read pairs are filtered and insertions are detected by the direction and distance of\n
+two reads of a read pair. Finally insertions detected are filtered by repeatmasker reference insertion annotation,\n
+nonoverlapping standard and other non-reference insertion detection software result for getting real de novo\n
+ALU insertions.\n
+Usage: 
+[-g <input file, genome alignment file, mandatory>]
+[-t <input file, TE consensus alignment file, mandatory>]
+[-o <output file name, suffix will be added automatically, mandatory>]
+[-G <Genome novoalign index file, mandatory>]
+[-R <ALU annotation file, bed, mandatory>]
+[-X <xTea or other non-reference insertion detection software result, bed, optional>]
+[-p <number of jobs to be run in parallel, optional, default: 2>]
+[-h <help>]";
+exit;
+}
+
+# get opts
+while getopts ":hg:t:o:G:R:X:p:" opt
+do
+    case "${opt}" in
+    h)usage;;
+    g)ginput=${OPTARG};;
+    t)tinput=${OPTARG};;
+    o)output=${OPTARG};;
+    G)Gindex=${OPTARG};;
+    R)repeatmasker=${OPTARG};;
+    X)xtea=${OPTARG};;
+    p)parallel=${OPTARG};;
+    *)
+        echo "Error! Unexpected parameters: $*!" 1>&2
+        usage
+        ;;
+    esac
+done
+
+[ -z $parallel ] && parallel=2
+
+if [ -z $ginput ] || [ -z $tinput ] || [ -z $output ] || [ -z $Gindex ] || [ -z $repeatmasker ] || [ -z $parallel ]
+then
+echo "Error! Lack of detectIns mandatory parameters!" 1>&2
+usage
+fi
+
+# get alignment to genome and TE consensus sequences
+samtools view -H ${tinput} > ${output}.te.sam
+samtools view ${tinput} | lowFI_detectIns.awk >> ${output}.te.sam
+samtools view ${output}.te.sam | awk '{print $1}' > ${output}.qname.txt
+samtools view -H ${ginput} > ${output}.genome.sam
+awk -v OFS="\t" 'NR==FNR{$1=$1"_"$2"_"$6"_"$3"_"$4"_"$NF;a[$1]=$0}NR!=FNR{print a[$1]}' ${ginput} ${output}.qname.txt >> ${output}.genome.sam
+
+# if no less than 50% of a read genome mapped alignment is also mapped to ALU, the soft-clipped part whose non-overlapping part is no less than 50% is remapped.
+# get genome-TE combined and sorted sam file
+samtools view ${output}.te.sam > ${output}.combined.sam
+samtools view ${output}.genome.sam >> ${output}.combined.sam
+sort -k 1,1 -k 3,3 ${output}.combined.sam > ${output}.combined.sorted.sam
+rm ${output}.combined.sam
+samtools view -H ${output}.genome.sam > ${output}.combined.header
+samtools view -H ${output}.te.sam >> ${output}.combined.header
+cat ${output}.combined.sorted.sam >> ${output}.combined.header
+mv ${output}.combined.header ${output}.combined.sorted.sam
+
+# filter and get converted fastq
+cat ${output}.combined.sorted.sam | lowFI_detectOverlap.py | lowFI_detectIns_getSoftClipped.awk > ${output}.clipped.inter.fastq 
+lowFI_convertFastq.py -i ${output}.clipped.inter.fastq > ${output}.clipped.fastq
+rm ${output}.clipped.inter.fastq
+
+# parallel realign with novoalign
+total_len=`wc -l ${output}.clipped.fastq | awk '{print $1}'`
+total_len=$(($total_len/4))
+batch_len=$((4*($total_len/$parallel+1)))
+split -d -a 4 -l $batch_len --additional-suffix=.clipped.inter ${output}.clipped.fastq ${output}_novoalign_
+ls ${output}_novoalign_*.clipped.inter | parallel --will-cite --progress -j $parallel -k novoalign -d ${Gindex} -f {} -o SAM -r All 1 -R 5 ">" {}.clipped.sam "2>" {}.clipped.novoalign.log
+
+for i in `ls ${output}_novoalign_*.clipped.inter`
+do
+if [ "${i}" == "${output}_novoalign_0000.clipped.inter" ]
+then
+samtools view -h ${i}.clipped.sam -o ${output}.clipped.sam
+cat ${i}.clipped.novoalign.log > ${output}.clipped.novoalign.log
+else
+samtools view ${i}.clipped.sam >> ${output}.clipped.sam
+cat ${i}.clipped.novoalign.log >> ${output}.clipped.novoalign.log
+fi
+rm ${i}
+rm ${i}.clipped.sam
+rm ${i}.clipped.novoalign.log
+done
+
+samtools sort -n -@ ${parallel} -m 2G -O sam -o ${output}.qname.sorted.clipped.sam ${output}.clipped.sam
+rm ${output}.clipped.sam
+
+# replace the origin alignment
+samtools view -H ${output}.combined.sorted.sam > ${output}.combined.sorted.retrieved.sam
+lowFI_replace.py -o ${output}.combined.sorted.sam -r ${output}.qname.sorted.clipped.sam >> ${output}.combined.sorted.retrieved.sam
+samtools view ${output}.combined.sorted.retrieved.sam | lowFI_checkRetrieve.awk
+
+# detect insertions 
+cat ${output}.combined.sorted.retrieved.sam | lowFI_detectInsertion.py | sort -n -k 1.4 -k 2,2 > ${output}.allInsertion.ALU.bed
+if [ ! -s ${output}.allInsertion.ALU.bed ]
+then
+echo -e "No insertion detected!\n"
+echo -e "detectIns done!\n"
+exit;
+fi
+
+# merge insertion sites for detecting singletons locate out of reference ALUs
+bedtools intersect -v -a ${output}.allInsertion.ALU.bed -b ${repeatmasker} > ${output}.nonRef.ALU.bed
+bedtools merge -c 4,4 -o count,collapse -i ${output}.nonRef.ALU.bed > ${output}.nonRef.ALU.merged
+awk -v OFS="\t" '{if($4==1)print $1,$2,$3,$5}' ${output}.nonRef.ALU.merged > ${output}.nonOverlap.ALU.bed
+if test ${xtea}
+then
+bedtools intersect -v -a ${output}.nonOverlap.ALU.bed -b ${xtea} > ${output}.nonXtea.ALU.bed
+fi
+echo -e "detectIns done!\n"

@@ -1,0 +1,81 @@
+#!/bin/bash
+### 2022.09.28
+### 1. Realign fastq file of soft-clipped parts with novoalign to TE consensus sequences.
+### 2. Allow multiple novoalign at the same time.
+
+
+
+# usage for output
+usage(){
+echo -e "reAlignTE\n
+Realign soft-clipped parts to TE consensus sequences with novoalign.
+Output is composed a sorted.bam file containing all mapped soft-clipped
+parts sorted by coordinates and a novoalign report. Parallel execution is allowed
+with GNU Parallel.\n
+Usage: 
+[-i <input file, fastq, mandatory>]
+[-o <output file name, suffix will be added automatically, mandatory>]
+[-T <TE consensus sequences novoalign index file, mandatory>]
+[-r <upper limit of secondary alignments novoalign will report, optional, default: 1>]
+[-R <standard of unique alignments novoalign will use, higher, more stringent, less unique aliments, optional, default: 5>]
+[-p <number of jobs to be run in parallel, optional, default: 2>]
+[-m <memory per thread used for samtools sort, optional, defalut: 2G>]
+[-h <help>]";
+exit;
+}
+
+# get opts
+while getopts ":hi:o:T:r:R:p:m:" opt
+do
+    case "${opt}" in
+    h)usage;;
+    i)input=${OPTARG};;
+    o)output=${OPTARG};;
+    T)Tindex=${OPTARG};;
+    r)upper=${OPTARG};;
+    R)unique=${OPTARG};;
+	p)parallel=${OPTARG};;
+    m)memory=${OPTARG};;
+    *)
+        echo "Error! Unexpected parameters: $*!" 1>&2
+        usage
+        ;;
+    esac
+done
+
+[ -z $upper ] && upper=1
+[ -z $unique ] && unique=5
+[ -z $parallel ] && parallel=2
+[ -z $memory ] && memory="2G"
+
+if [ -z $input ] || [ -z $output ] || [ -z ${Tindex} ] || [ -z $upper ] || [ -z $unique ] || [ -z $parallel ] || [ -z $memory ]
+then
+echo "Error! reAlignTE Lack of mandatory parameters!" 1>&2
+usage
+fi
+
+# parallel novoalign
+total_len=`wc -l ${input} | awk '{print $1}'`
+total_len=$(($total_len/4))
+batch_len=$((4*($total_len/$parallel+1)))
+split -d -a 4 -l $batch_len --additional-suffix=.inter ${input} ${output}_novoalign_
+ls ${output}_novoalign_*.inter | parallel --will-cite --progress -j $parallel -k novoalign -d ${Tindex} -f {} -o SAM -r All $upper -R $unique ">" {}.sam "2>" {}.novoalign.log
+
+# combine, sort and output realignment results
+for i in `ls ${output}_novoalign_*.inter`
+do
+if [ "${i}" == "${output}_novoalign_0000.inter" ]
+then
+samtools view -h ${i}.sam -o ${output}.sam
+cat ${i}.novoalign.log > ${output}.novoalign.log
+else
+samtools view ${i}.sam >> ${output}.sam
+cat ${i}.novoalign.log >> ${output}.novoalign.log
+fi
+rm ${i}
+rm ${i}.sam
+rm ${i}.novoalign.log
+done
+samtools sort -n -@ $parallel -m $memory -O sam -o ${output}.te.clipped.pair.realigned.qname.sorted.sam ${output}.sam
+rm ${output}.sam
+echo -e "reAlignTE done!\n"
