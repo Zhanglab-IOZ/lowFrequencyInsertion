@@ -3,7 +3,7 @@
 1. novoalign version: 3.09.04  
 2. parallel<sup>[[1]](https://github.com/MarcelloMalpighi/lowFrequencyInsertion/edit/main/README.md#references)</sup> version: 20220722  
 3. pysam version: 0.19.1  
-4. python version:3.10.5  
+4. python version: 3.10.5  
 5. samtools version: 1.15.1  
   
 ## Run lowFI
