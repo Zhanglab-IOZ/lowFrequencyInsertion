@@ -1,0 +1,69 @@
+#!/bin/bash
+### 2022.09.28
+### 1. Filter alignments with flag 256(secondary) 2048(supplementary).
+### 2. Get alignments contains only 1 soft-clipped part whose length must be not more/less than input limits and their mate alignments.
+
+
+
+# usage for output
+usage(){ 
+echo -e "getSoftClipped\n
+Get primary alignments contains only 1 soft-clipped part and the length 
+of this part must be not more/less than input limits. Output is composed
+of a sam file of chosen alignments with their mate alignments and a 
+corresponging fastq file of chosen reads.\n
+Usage: 
+[-i <input file, bam/sam, mandatory>]
+[-o <output file name, suffix will be added automatically, mandatory>]
+[-u <upper limit of soft-clipped part length, limit itself is included, optional, default: 130>]
+[-l <lower limit of soft-clipped part length, limit itself is included, optional, default: 20>]
+[-p <number of jobs to be run in parallel, optional, default: 2>]
+[-m <memory per thread used for samtools sort, optional, defalut: 2G>]
+[-h <help>]"; 
+exit;
+}
+
+# get opts
+while getopts ":hi:o:u:l:p:m:" opt
+do
+	case "${opt}" in
+	h)usage;;
+	i)input=${OPTARG};;
+	o)output=${OPTARG};;
+	u)upper=${OPTARG};;
+	l)lower=${OPTARG};;
+    p)parallel=${OPTARG};;
+    m)memory=${OPTARG};;
+	*)
+        	echo "Error! Unexpected parameters: $*!" 1>&2
+		usage
+		;;
+	esac
+done
+
+[ -z ${upper} ] && upper=130
+[ -z ${lower} ] && lower=20
+[ -z ${parallel} ] && parallel=2
+[ -z ${memory} ] && memory="2G"
+
+if [ -z $input ] || [ -z $output ] || [ -z $upper ] || [ -z $lower ] || [ -z $parallel ] || [ -z $memory ]
+then
+echo "Error! Lack of getSoftClipped mandatory parameters!" 1>&2
+usage
+fi
+
+# prepare sam file
+samtools view -u -F 2304 ${input} | samtools sort -n -@ ${parallel} -m ${memory} -O sam | \
+lowFI_getSoftClipped.awk -v up=${upper} -v low=${lower} > ${output}.genome.clipped.pair.sam
+
+# output fastq file with QNAME FLAG CIGAR RNAME POS and sam file
+awk '{printf "%s%s%s%s%s%s%s%s%s%s%s%s\n","@",$1,"_",$2,"_",$6,"_",$3,"_",$4,"_",$NF;printf "%s\n%s\n%s\n",$10,"+",$11}' ${output}.genome.clipped.pair.sam > ${output}.genome.clipped.pair.inter.fastq
+lowFI_convertFastq.py -i ${output}.genome.clipped.pair.inter.fastq > ${output}.genome.clipped.pair.fastq
+rm ${output}.genome.clipped.pair.inter.fastq
+samtools view -H ${input} -o ${output}.genome.clipped.pair.header
+
+#echo -e "@PG\tID:lowFrequencyInsertion\tVN:0.0.1\tCL:getSoftClipped" >> ${output}.header
+cat ${output}.genome.clipped.pair.sam >> ${output}.genome.clipped.pair.header
+mv ${output}.genome.clipped.pair.header ${output}.genome.clipped.pair.sam
+mv ${output}.genome.clipped.pair.sam ${output}.genome.clipped.pair.qname.sorted.sam
+echo -e "getSoftClipped done!\n"

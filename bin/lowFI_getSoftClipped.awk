@@ -1,5 +1,5 @@
 #!/usr/bin/awk -f
-### 2022.08.31
+### 2022.09.06
 
 
 
@@ -12,7 +12,7 @@ BEGIN{
         if (length(a) == 2){
             match($6,/([0-9]+)(S)/,a)
             if (a[1] <= up && a[1] >= low){
-                print $0
+                printf "%s\t%s\n",$0,"XG:Z:CLIP"
                 marker = 0
             }
             else {
@@ -24,15 +24,26 @@ BEGIN{
         }
     }
     else if (marker == 0){
-            print $0
+            if (length(a) == 2){
+                match($6,/([0-9]+)(S)/,a)
+                if (a[1] <= up && a[1] >= low){
+                    printf "%s\t%s\n",$0,"XG:Z:CLIP"
+                }
+                else {
+                    printf "%s\t%s\n",$0,"XG:Z:UNCLIP"
+                }                
+            }
+            else {
+                printf "%s\t%s\n",$0,"XG:Z:UNCLIP"
+            }
             marker = 1
         }
     else {
         if (length(a) == 2){
             match($6,/([0-9]+)(S)/,a)
             if (a[1] <= up && a[1] >= low){
-                print $0
-                print interline
+                printf "%s\t%s\n",$0,"XG:Z:CLIP"
+                printf "%s\t%s\n",interline,"XG:Z:UNCLIP"
             }
         }            
     }
