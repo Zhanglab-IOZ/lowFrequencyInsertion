@@ -60,7 +60,7 @@ mkdir ${output}
 cd ${output}
 /usr/bin/time -a -o ${output}.time.log -f "${output} getSoftClipped time: %E" getSoftClipped -i ${input} -o ${output} -u ${upper} -l ${lower} -p ${parallel} -m ${memory}
 /usr/bin/time -a -o ${output}.time.log -f "${output} reAlignTE time: %E" reAlignTE -i ${output}.genome.clipped.pair.fastq -o ${output} -T ${Tindex} -p ${parallel} -m ${memory} 
-if [ -z $xtea ]
+if test $xtea
 then
 /usr/bin/time -a -o ${output}.time.log -f "${output} detectIns time: %E" detectIns -g ${output}.genome.clipped.pair.qname.sorted.sam -t ${output}.te.clipped.pair.realigned.qname.sorted.sam -o ${output} -G ${Gindex} -R ${repeatmasker} -X ${xtea} -p ${parallel}
 else
