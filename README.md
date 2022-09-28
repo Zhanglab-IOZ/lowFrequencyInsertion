@@ -1,36 +1,29 @@
 # lowFrequencyInsertion  
-## Dependency  
-novoalign version: 3.09.04  
-parallel<sup>[[1]](https://github.com/MarcelloMalpighi/lowFrequencyInsertion/edit/main/README.md#references)</sup> version: 20220722  
-samtools version: 1.15.1  
+## Dependencies  
+1. novoalign version: 3.09.04  
+2. parallel<sup>[[1]](https://github.com/MarcelloMalpighi/lowFrequencyInsertion/edit/main/README.md#references)</sup> version: 20220722  
+3. pysam version: 0.19.1  
+4. python version:3.10.5  
+5. samtools version: 1.15.1  
   
-## getSoftClipped.sh  
-Get primary alignments contains only 1 soft-clipped part and the length 
-of this part must be not more/less than input limits. Output is composed
-of a sam file of chosen alignments with their mate alignments and a 
-corresponging fastq file of chosen reads.  
-Usage:  
-[-i <input file, bam/sam, mandatory>]  
+## Run lowFI
+```
+lowFI  
+Detect low-frequency ALU insertions supported by single soft-clipped read pair.
+  
+Usage: lowFI [options]  
+[-i <input file, the absolute path is necessary, bam/sam, mandatory>]  
 [-o <output file name, suffix will be added automatically, mandatory>]  
 [-u <upper limit of soft-clipped part length, limit itself is included, optional, default: 130>]  
 [-l <lower limit of soft-clipped part length, limit itself is included, optional, default: 20>]  
-[-t <threads used for samtools sort, optional, default: 2>]  
+[-p <number of jobs to be run in parallel, optional, default: 2>]  
 [-m <memory per thread used for samtools sort, optional, defalut: 2G>]  
-[-h \<help>]  
-  
-## reAlignRef.sh  
-Realign soft-clipped parts to TE consensus sequences with novoalign.  
-Output is composed a sorted.bam file containing all mapped soft-clipped  
-parts sorted by coordinates and a novoalign report. Parallel execution is allowed  
-with GNU Parallel.  
-Usage:  
-[-i <input file, fastq>]  
-[-o <output file name, suffix will be added automatically>]  
-[-c \<TE consensus sequences novoalign index file>]  
-[-r <upper limit of secondary alignments novoalign will report, default: 10>]  
-[-R <standard of unique alignments novoalign will use, higher, more stringent, less unique aliments, default: 5>]  
-[-p <number of jobs to be run in parallel, default: 2>]  
-[-h \<help>]  
+[-T <ALU consensus sequences novoalign index file, mandatory>]  
+[-G <Genome novoalign index file, mandatory>]  
+[-R <ALU annotation file, bed, mandatory>]  
+[-X <xTea detection result, bed, optional>]  
+[-h <help>]  
+```
   
 ## References  
 [1] Tange, Ole. (2018). GNU Parallel 2018. In GNU Parallel 2018 (p. 112). Ole Tange. https://doi.org/10.5281/zenodo.1146014
