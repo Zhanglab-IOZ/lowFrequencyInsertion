@@ -21,7 +21,7 @@ Usage: lowFI [options]
 [-T <ALU consensus sequences novoalign index file, mandatory>]  
 [-G <Genome novoalign index file, mandatory>]  
 [-R <ALU annotation file, bed, mandatory>]  
-[-X <xTea detection result, bed, optional>]  
+[-X <nonreference insertion detection result, bed, optional>]  
 [-h <help>]  
 ```
   
