@@ -6,7 +6,7 @@
 # usage for output
 usage(){ 
 echo -e "lowFI\n
-Detect low-frequency ALU insertions supported by single soft-clipped read pair.\n
+Detect ALU insertions supported by specific soft-clipped read pairs.\n
 Usage: lowFI [options]
 [-i <input file, the absolute path is necessary, bam/sam, mandatory>]
 [-o <output file name, suffix will be added automatically, mandatory>]
